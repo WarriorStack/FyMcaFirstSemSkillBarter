@@ -19,6 +19,16 @@ import adminAnnouncementRoutes from "./routes/adminAnnouncementRoutes.js";
 import adminReportRoutes from "./routes/adminReportRoutes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js";
 import adminAnalyticsRoutes from "./routes/adminAnalyticsRoutes.js";
+
+
+import adminUserRoutes from "./routes/adminUserRoutes.js";
+import adminSkillRoutes from "./routes/adminSkillRoutes.js";
+import adminVerificationRoutes from "./routes/adminVerificationRoutes.js";
+import adminCollaborationRoutes from "./routes/adminCollaborationRoutes.js";
+import adminAchievementRoutes from "./routes/adminAchievementRoutes.js";
+import adminTransactionRoutes from "./routes/adminTransactionRoutes.js";
+
+
 dotenv.config();
 const app = express();
 
@@ -50,11 +60,17 @@ app.use("/tasks", taskRoutes);
 app.use("/achievements", achievementRoutes);
 app.use("/admin", adminRoutes); 
 
-app.use("/admin/announcements", adminAnnouncementRoutes);
+
+app.use("/admin/dashboard", adminRoutes);
 app.use("/admin/reports", adminReportRoutes);
 app.use("/admin/users", adminUserRoutes);
+app.use("/admin/skills", adminSkillRoutes);
+app.use("/admin/verifications", adminVerificationRoutes);
+app.use("/admin/collaborations", adminCollaborationRoutes);
+app.use("/admin/achievements", adminAchievementRoutes);
+app.use("/admin/transactions", adminTransactionRoutes);
+app.use("/admin/announcements", adminAnnouncementRoutes);
 app.use("/admin/analytics", adminAnalyticsRoutes);
-
 
 app.listen(5000, () => {
   console.log("Backend running on http://localhost:5000");

@@ -22,9 +22,6 @@ async function findBestInstructorForSkill(skillId) {
 }
 
 // POST /collaborations/request
-// Supports BOTH:
-//  - { requester_id, to_user_id, message }  -> direct person
-//  - { requester_id, skill_id, message }    -> best instructor for skill
 export const requestCollaboration = async (req, res) => {
   try {
     const { requester_id, to_user_id, skill_id, message } = req.body;
@@ -40,9 +37,7 @@ export const requestCollaboration = async (req, res) => {
         ? message.trim()
         : "I'd like to collaborate with you.";
 
-    /* ---------------------------
-       CASE 1: DIRECT PERSON REQUEST
-    --------------------------- */
+    // CASE 1: direct person
     if (to_user_id) {
       providerId = to_user_id;
       title = "Collaboration Request";
@@ -53,10 +48,7 @@ export const requestCollaboration = async (req, res) => {
           .json({ message: "You cannot send a request to yourself" });
       }
     }
-
-    /* ---------------------------
-       CASE 2: SKILL REQUEST
-    --------------------------- */
+    // CASE 2: skill-based
     else if (skill_id) {
       const [[skill]] = await db.query(
         "SELECT skill_name FROM skills WHERE id = ?",
@@ -86,18 +78,13 @@ export const requestCollaboration = async (req, res) => {
       }
     }
 
-    /* ---------------------------
-       VALIDATION
-    --------------------------- */
     if (!providerId) {
       return res.status(400).json({
         message: "Missing both skill_id and to_user_id",
       });
     }
 
-    /* ---------------------------
-       CREATE COLLABORATION ROW
-    --------------------------- */
+    // CREATE COLLAB
     const [result] = await db.query(
       `
       INSERT INTO collaborations
@@ -106,12 +93,9 @@ export const requestCollaboration = async (req, res) => {
       `,
       [requester_id, providerId, title, details]
     );
-
     const collaborationId = result.insertId;
 
-    /* ---------------------------
-       CREATE CONVERSATION + FIRST MESSAGE
-    --------------------------- */
+    // CONVERSATION
     const [convRes] = await db.query(
       "INSERT INTO conversations (subject, is_group) VALUES (?, 0)",
       [title]
@@ -123,7 +107,6 @@ export const requestCollaboration = async (req, res) => {
       [conversationId, requester_id, details]
     );
 
-    // Link the conversation to the collaboration
     await db.query(
       "UPDATE collaborations SET conversation_id = ? WHERE id = ?",
       [conversationId, collaborationId]
@@ -160,7 +143,6 @@ export const acceptCollaboration = async (req, res) => {
       return res.status(404).json({ message: "Collaboration not found" });
     }
 
-    // New rule: both requester and provider can accept
     if (
       Number(collab.requester_id) !== Number(user_id) &&
       Number(collab.provider_id) !== Number(user_id)
@@ -209,7 +191,6 @@ export const rejectCollaboration = async (req, res) => {
       return res.status(404).json({ message: "Collaboration not found" });
     }
 
-    // New rule: both requester and provider can reject
     if (
       Number(collab.requester_id) !== Number(user_id) &&
       Number(collab.provider_id) !== Number(user_id)

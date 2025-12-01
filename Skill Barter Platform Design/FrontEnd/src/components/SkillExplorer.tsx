@@ -1,5 +1,5 @@
 // frontend/src/components/SkillExplorer.tsx
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect } from "react";
 import { SkillCard, SkillItem } from "./SkillCard";
 import {
@@ -9,6 +9,9 @@ import {
   Star,
   Sparkles,
   ArrowRight,
+  CheckCircle2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -64,6 +67,13 @@ export function SkillExplorer({
   const [message, setMessage] = useState("");
   const messageLimit = 500;
 
+  // send state (for animation)
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<"idle" | "success" | "error">(
+    "idle"
+  );
+  const [sendErrorText, setSendErrorText] = useState<string | null>(null);
+
   const categories = [
     "All",
     "Technology",
@@ -75,6 +85,13 @@ export function SkillExplorer({
     "Media",
     "Other",
   ];
+
+  const resetDialogState = () => {
+    setMessage("");
+    setSending(false);
+    setSendResult("idle");
+    setSendErrorText(null);
+  };
 
   // ─────────────────────────────────────────────
   // LOAD SKILLS + PEOPLE
@@ -123,6 +140,7 @@ export function SkillExplorer({
           );
           if (target) {
             setSelectedPerson(target);
+            resetDialogState();
             setShowConnectDialog(true);
           }
         }
@@ -168,14 +186,14 @@ export function SkillExplorer({
   const openConnectPerson = (p: PersonItem) => {
     setSelectedPerson(p);
     setSelectedSkill(null);
-    setMessage("");
+    resetDialogState();
     setShowConnectDialog(true);
   };
 
   const openConnectSkill = (skill: SkillItem) => {
     setSelectedSkill(skill);
     setSelectedPerson(null);
-    setMessage("");
+    resetDialogState();
     setShowConnectDialog(true);
   };
 
@@ -187,7 +205,11 @@ export function SkillExplorer({
     }
 
     try {
-      const payload =
+      setSending(true);
+      setSendResult("idle");
+      setSendErrorText(null);
+
+      const payloadBody =
         selectedPerson !== null
           ? {
               requester_id: Number(userId),
@@ -203,17 +225,31 @@ export function SkillExplorer({
       const res = await fetch(`${API_BASE}/collaborations/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payloadBody),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to send request.");
+      }
 
-      alert("Your collaboration request has been sent!");
-      setShowConnectDialog(false);
+      // Success animation
+      setSendResult("success");
+      setMessage("");
+
+      // Close dialog shortly after success
+      setTimeout(() => {
+        setShowConnectDialog(false);
+        resetDialogState();
+        setSelectedPerson(null);
+        setSelectedSkill(null);
+      }, 1200);
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Failed to send request.");
+      setSendResult("error");
+      setSendErrorText(err?.message || "Failed to send request.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -365,7 +401,10 @@ export function SkillExplorer({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
                 >
-                  <SkillCard skill={sk} onConnect={() => openConnectSkill(sk)} />
+                  <SkillCard
+                    skill={sk}
+                    onConnect={() => openConnectSkill(sk)}
+                  />
                 </motion.div>
               ))}
             </div>
@@ -449,8 +488,9 @@ export function SkillExplorer({
 
                       <button
                         onClick={() => openConnectPerson(p)}
-                        className="flex-1 px-4 py-2 bg-gradient-to-r from-[#6C63FF] to-[#4A90E2] text-white rounded-xl text-sm"
+                        className="flex-1 px-4 py-2 bg-gradient-to-r from-[#6C63FF] to-[#4A90E2] text-white rounded-xl text-sm flex items-center justify-center gap-1"
                       >
+                        <Sparkles className="w-4 h-4" />
                         Connect
                       </button>
                     </div>
@@ -463,89 +503,200 @@ export function SkillExplorer({
       )}
 
       {/* CONNECT DIALOG */}
-      <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
-        <DialogContent className="max-w-lg glass-panel rounded-3xl border-0">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              {selectedPerson
-                ? `Connect with ${selectedPerson.full_name}`
-                : selectedSkill
-                ? `Learn ${selectedSkill.name}`
-                : "Send collaboration request"}
-            </DialogTitle>
-            <DialogDescription>
-              Your message should be short, polite and professional.
-            </DialogDescription>
-          </DialogHeader>
 
-          {selectedPerson && (
-            <div className="flex items-center gap-3 mt-3 mb-2">
-              <Avatar className="w-10 h-10 ring-2 ring-[#4A90E2]">
+<Dialog open={showConnectDialog} onOpenChange={(open) => {
+  setShowConnectDialog(open);
+  if (!open) {
+    resetDialogState();
+    setSelectedPerson(null);
+    setSelectedSkill(null);
+  }
+}}>
+  <DialogContent
+    className="
+      max-w-xl 
+      w-full
+      max-h-[90vh]
+      rounded-3xl 
+      bg-white 
+      shadow-2xl 
+      border border-gray-300 
+      p-0
+      overflow-hidden
+      flex 
+      flex-col
+    "
+  >
+
+    {/* HEADER */}
+    <div className="p-6 border-b bg-white sticky top-0 z-20">
+      <DialogHeader>
+        <DialogTitle className="text-2xl font-bold text-gray-800">
+          {selectedPerson ? "Connect With a Mentor" : "Request a Skill Instructor"}
+        </DialogTitle>
+        <DialogDescription className="text-sm text-gray-500">
+          Write a short, professional message.
+        </DialogDescription>
+      </DialogHeader>
+    </div>
+
+    {/* MAIN SCROLL AREA (CONTENT) */}
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+      {/* PERSON CONNECT UI */}
+      {selectedPerson && (
+        <div className="space-y-6">
+
+          {/* PERSON BOX */}
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <Avatar className="w-16 h-16 ring-2 ring-blue-500">
                 <AvatarImage
                   src={
                     selectedPerson.avatar_url?.startsWith("http")
                       ? selectedPerson.avatar_url
                       : selectedPerson.avatar_url
                       ? `${API_BASE}${selectedPerson.avatar_url}`
-                      : undefined
+                      : ""
                   }
                 />
-                <AvatarFallback>
-                  {selectedPerson.full_name[0].toUpperCase()}
-                </AvatarFallback>
+                <AvatarFallback>{selectedPerson.full_name[0]}</AvatarFallback>
               </Avatar>
 
-              <div className="text-sm">
-                <p className="font-medium">{selectedPerson.full_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {selectedPerson.rating
-                    ? `${selectedPerson.rating.toFixed(1)}★ · ${selectedPerson.points} pts`
-                    : `${selectedPerson.points} pts`}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {selectedPerson.full_name}
+                </h3>
+
+                <p className="text-gray-600 mt-1 text-sm">
+                  ⭐ {selectedPerson.rating ?? "No rating"} • {selectedPerson.points} pts
                 </p>
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedPerson.skills.slice(0, 4).map((skill, i) => (
+                    <span
+                      key={i}
+                      className="bg-blue-200 text-blue-800 px-2 py-1 text-xs rounded-xl"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Message */}
-          <div className="mt-4">
-            <div className="flex justify-between text-sm mb-1">
-              <label>Message</label>
-              <span className="text-muted-foreground">
-                {message.length}/{messageLimit}
-              </span>
-            </div>
+          {/* REASON */}
+          <div>
+            <label className="text-sm font-semibold text-gray-800">Reason</label>
+            <select className="mt-1 w-full p-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-700">
+              <option>Study Help</option>
+              <option>Project Collaboration</option>
+              <option>Skill Exchange</option>
+              <option>Mentorship</option>
+            </select>
+          </div>
 
+          {/* MESSAGE */}
+          <div>
+            <label className="text-sm font-semibold text-gray-800">Message</label>
             <textarea
               rows={5}
-              className="w-full bg-muted rounded-2xl p-4 focus:ring-2 focus:ring-[#4A90E2] text-sm"
               value={message}
-              onChange={(e) =>
-                setMessage(e.target.value.slice(0, messageLimit))
-              }
-              placeholder="Introduce yourself and explain how you'd like to collaborate..."
+              onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+              className="
+                w-full mt-1 p-4 
+                bg-gray-100 border border-gray-300 
+                rounded-2xl text-gray-700 
+                focus:ring-2 focus:ring-blue-500
+              "
+              placeholder="Tell them briefly who you are and what you need..."
+            />
+          </div>
+        </div>
+      )}
+
+      {/* SKILL CONNECT UI */}
+      {selectedSkill && (
+        <div className="space-y-6">
+
+          {/* SKILL BOX */}
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl">
+            <h3 className="text-xl font-bold text-purple-800">
+              {selectedSkill.name}
+            </h3>
+            <p className="text-sm text-purple-600 mt-1">
+              Category: {selectedSkill.category}
+            </p>
+          </div>
+
+          {/* GOALS */}
+          <div>
+            <label className="text-sm font-semibold text-gray-800">Learning Goals</label>
+            <textarea
+              rows={3}
+              className="w-full mt-1 p-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-700"
+              placeholder="What do you want to achieve?"
             />
           </div>
 
-          <div className="flex mt-6 gap-3">
-            <button
-              className="flex-1 px-4 py-2 bg-muted rounded-xl"
-              onClick={() => setShowConnectDialog(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-[#6C63FF] to-[#4A90E2] text-white rounded-xl"
-              onClick={sendRequest}
-            >
-              Send Request
-            </button>
+          {/* MESSAGE */}
+          <div>
+            <label className="text-sm font-semibold text-gray-800">Message</label>
+            <textarea
+              rows={5}
+              value={message}
+              onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+              className="
+                w-full mt-1 p-4 
+                bg-gray-100 border border-gray-300 
+                rounded-2xl text-gray-700 
+                focus:ring-2 focus:ring-purple-500
+              "
+              placeholder="Explain your goals briefly..."
+            />
           </div>
+        </div>
+      )}
 
-          <p className="text-xs text-muted-foreground mt-2">
-            Once sent, your message cannot be edited.
-          </p>
-        </DialogContent>
-      </Dialog>
+    </div>
+
+    {/* FOOTER: ALWAYS VISIBLE BUTTONS */}
+    <div className="
+      sticky bottom-0 
+      bg-white 
+      border-t 
+      p-4 
+      flex 
+      justify-end 
+      gap-3 
+      z-30
+    ">
+      <button
+        onClick={() => setShowConnectDialog(false)}
+        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-xl hover:bg-gray-300"
+      >
+        Cancel
+      </button>
+
+      <button
+        onClick={sendRequest}
+        className="
+          px-6 py-2 
+          rounded-xl 
+          color-black 
+          font-semibold
+          transition 
+          bg-blue-600 hover:bg-blue-700
+        "
+      >
+        {selectedPerson ? "Send Request" : "Request Instructor"}
+      </button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+
     </div>
   );
 }

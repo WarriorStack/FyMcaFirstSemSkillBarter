@@ -253,7 +253,119 @@ CREATE TABLE feedback (
   INDEX idx_feedback_project (project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+
+CREATE TABLE tasks (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  collaboration_id INT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  status ENUM('todo','inprogress','done') NOT NULL DEFAULT 'todo',
+  priority ENUM('Low','Medium','High') NOT NULL DEFAULT 'Medium',
+  assignee_id INT UNSIGNED NOT NULL,
+  due_date DATE DEFAULT NULL,
+
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_tasks_collab FOREIGN KEY (collaboration_id)
+    REFERENCES collaborations(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT fk_tasks_assignee FOREIGN KEY (assignee_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  INDEX idx_tasks_status (status),
+  INDEX idx_tasks_assignee (assignee_id)
+);
+
+
+CREATE TABLE achievements (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  points_reward INT UNSIGNED DEFAULT 0,
+  icon VARCHAR(100) DEFAULT 'award',
+  earned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_achievements_user FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE reports (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  reporter_id INT UNSIGNED NOT NULL,
+  reported_user_id INT UNSIGNED NOT NULL,
+  issue VARCHAR(255) NOT NULL,
+  status ENUM('pending','resolved','investigating','dismissed') NOT NULL DEFAULT 'pending',
+  priority ENUM('Low','Medium','High') NOT NULL DEFAULT 'Medium',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME DEFAULT NULL,
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_reports_reporter FOREIGN KEY (reporter_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT fk_reports_reported_user FOREIGN KEY (reported_user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  INDEX idx_reports_status (status),
+  INDEX idx_reports_priority (priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE announcements (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  admin_id INT UNSIGNED NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (admin_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+use skill_Barter;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 ALTER TABLE users
   ADD COLUMN avatar_url VARCHAR(255) DEFAULT NULL;
+
+ALTER TABLE collaborations
+  ADD COLUMN conversation_id INT UNSIGNED DEFAULT NULL AFTER requested_at,
+  ADD INDEX idx_collaborations_conversation (conversation_id),
+  ADD CONSTRAINT fk_collab_conversation
+    FOREIGN KEY (conversation_id)
+    REFERENCES conversations(id)
+      ON DELETE SET NULL
+      ON UPDATE CASCADE;
+      
+      
+USE skill_Barter;
+
+-- 1. Extend user_type + moderation flags
+ALTER TABLE users
+  MODIFY user_type ENUM('student','admin','guest','mentor','trainer')
+    NOT NULL DEFAULT 'student',
+  ADD COLUMN shadow_banned TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active,
+  ADD COLUMN can_message TINYINT(1) NOT NULL DEFAULT 1 AFTER shadow_banned;
+
+-- 2. Add featured flag to skills
+ALTER TABLE skills
+  ADD COLUMN is_featured TINYINT(1) NOT NULL DEFAULT 0 AFTER verified;
+
+-- 3. Add admin_notes to collaborations
+ALTER TABLE collaborations
+  ADD COLUMN admin_notes TEXT DEFAULT NULL AFTER details;
+
+-- 4. Add notes to skill_verifications
+ALTER TABLE skill_verifications
+  ADD COLUMN notes TEXT DEFAULT NULL AFTER status;
+

@@ -53,6 +53,12 @@ export default function App() {
       setExplorePayload(payload || null);
     }
 
+    // handle logout
+    if (page === "landing" && localStorage.getItem("userId")) {
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userType");
+    }
+
     setIsLoading(true);
 
     setTimeout(() => {
@@ -117,7 +123,7 @@ export default function App() {
       // -----------------------------
       // ADMIN AUTH CHECK
       // -----------------------------
-      case "admin":
+      case "admin": {
         if (userType !== "admin") {
           return (
             <NotFoundPage
@@ -127,6 +133,7 @@ export default function App() {
           );
         }
         return <AdminPanel />;
+      }
 
       case "maintenance":
         return <MaintenancePage />;
@@ -145,17 +152,27 @@ export default function App() {
 
     const userType = localStorage.getItem("userType");
 
-    const navItems = [
-      { label: "Dashboard", page: "dashboard" as Page },
-      { label: "My Profile", page: "profile" as Page },
-      { label: "Explore", page: "explore-skills" as Page },
-      { label: "Collaborate", page: "collaboration" as Page },
-      { label: "Achievements", page: "achievements" as Page },
-      ...(userType === "admin"
-        ? [{ label: "Admin", page: "admin" as Page }]
-        : []),
-      { label: "Logout", page: "landing" as Page },
-    ];
+    let navItems:
+      | { label: string; page: Page }[]
+      | { label: string; page: Page }[] = [];
+
+    if (userType === "admin") {
+      // ADMIN-ONLY NAVIGATION
+      navItems = [
+        { label: "Admin Dashboard", page: "admin" },
+        { label: "Logout", page: "landing" },
+      ];
+    } else {
+      // NORMAL USER NAVIGATION
+      navItems = [
+        { label: "Dashboard", page: "dashboard" },
+        { label: "My Profile", page: "profile" },
+        { label: "Explore", page: "explore-skills" },
+        { label: "Collaborate", page: "collaboration" },
+        { label: "Achievements", page: "achievements" },
+        { label: "Logout", page: "landing" },
+      ];
+    }
 
     return (
       <motion.div
