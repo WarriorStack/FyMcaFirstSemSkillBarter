@@ -21,7 +21,6 @@ import adminUserRoutes from "./routes/adminUserRoutes.js";
 import adminAnalyticsRoutes from "./routes/adminAnalyticsRoutes.js";
 
 
-import adminUserRoutes from "./routes/adminUserRoutes.js";
 import adminSkillRoutes from "./routes/adminSkillRoutes.js";
 import adminVerificationRoutes from "./routes/adminVerificationRoutes.js";
 import adminCollaborationRoutes from "./routes/adminCollaborationRoutes.js";
